@@ -1,0 +1,105 @@
+version: '3.6'
+volumes:
+  postgres-data:
+services:
+  caddy:
+    image: clocksession/core-caddy:latest
+    restart: always
+    ports:
+      - "80"
+      - "443"
+      - "3101:3011"
+      - "3100:3010"
+      - "3102:3012"
+    volumes:
+      - ~/caddy/data:/data
+      - ~/caddy/config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    
+    networks:
+      - localnetwork
+
+
+  django_app: &django_app
+    image: clocksession/clocksession:latest 
+    command: /start.sh
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings_qa
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB_DJANGO: clocksession-dev
+      CRM_URL: https://admin.dev.clocksession.com
+      CRM_API_KEY: ykj37Qiv.pV3Qu2IAbIKijubuuT4Xzc4X7lFhy0G7
+      REDIS_URL: redis://redis:6379/0
+      WORDPRESS_CONFIG_EXTRA: define('WP_HOME',getenv_docker('WP_HOME', 'https://www.clocksession.com'));define('WP_SITEURL',getenv_docker('WP_SITEURL', 'https://www.clocksession.com'));define('WP_MEMORY_LIMIT', '900M');define('WP_MAX_MEMORY_LIMIT', '900M');define('FORCE_SSL_ADMIN', true);
+
+      DATABASE_URL: postgres://postgres:admin@postgres:5432/clocksession-dev
+    ports:
+      - "5000"
+    networks:
+      - localnetwork
+    volumes:
+      - ./clocksession:/app/media
+    depends_on:
+      - postgres
+
+  django_app_migrate:
+    <<: *django_app
+    command: /migrate.sh
+    ports:
+      - "5000"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    depends_on:
+      - postgres
+  
+  django_app_migrate_all:
+    <<: *django_app
+    command: /migrate_all.sh
+    ports:
+      - "5000"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s 
+    depends_on:
+      - postgres
+    
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: clocksession-dev
+    volumes:
+      - /postgres-data:/var/lib/postgresql/data 
+    
+    ports:
+      - "5436:5432"
+    networks:
+      - localnetwork  
+      
+  
+  redis:
+    image: redis:latest
+    ports:
+      - 6379
+      - 8001
+    networks:
+      - localnetwork
+  
+  
+ 
+networks:
+  localnetwork:
+    attachable: true  
+
+
