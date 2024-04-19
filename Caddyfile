@@ -1,0 +1,45 @@
+(upstream-headers) {
+	header_up X-Real-IP {http.request.remote}
+	header_up X-Forwarded-Proto {http.request.scheme}
+}
+
+{
+	email diljot.singh@mechlintech.com
+}
+
+
+
+###### DEVELOPMENT ENVIRONMENT ######
+
+# Wordpress Site for Marketing
+wordpress.dev.clocksession.com {
+	@django_backend {
+		path /app/signup* /app/forgotpassword* /app/login* /api/signup* /api/tenant-auth* /api/login* /django-static* /images* /__debug__*
+	}
+
+	handle @django_backend {
+		reverse_proxy django:5000
+	}
+
+	reverse_proxy clocksession-wp-dev_wordpress:80 {
+		import upstream-headers
+	}
+}
+
+# Tenant Site
+:3010 {
+	
+	reverse_proxy django_app:5000
+				  
+}
+
+# Admin Site 
+:3011 {
+	reverse_proxy django:5000
+}
+
+:3012 {
+	
+	respond "Health Okay"
+
+}
